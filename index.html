@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071526" />
+    <meta name="description" content="A local-first Sim Companies account-history CSV analyzer." />
+    <title>Sim Companies Analyzer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Application navigation">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div><strong>Sim Companies</strong><small>Analyzer</small></div>
+        </div>
+        <nav class="nav-list">
+          <button class="nav-item is-active" data-page="overview"><span>⌂</span>Overview</button>
+          <button class="nav-item" data-page="sales"><span>↗</span>Sales &amp; profit</button>
+          <button class="nav-item" data-page="expenses"><span>▣</span>Costs &amp; expenses</button>
+          <button class="nav-item" data-page="trends"><span>⌁</span>Trends</button>
+          <button class="nav-item" data-page="executives"><span>◌</span>Executive costs</button>
+          <button class="nav-item" data-page="transactions"><span>⌕</span>Transactions</button>
+          <button class="nav-item" data-page="inventory"><span>▤</span>Inventory</button>
+          <button class="nav-item" data-page="price"><span>◈</span>Price check</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <button class="privacy-card" id="privacyButton"><b>Local-first</b><span>Your CSV stays in this browser.</span></button>
+          <a class="support-link" id="supportLink" href="#support"><span>♡</span> Support this project</a>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="mobile-brand"><span class="brand-dot"></span><b>Sim Companies Analyzer</b></div>
+          <div class="file-status" id="fileStatus"><span class="status-dot"></span><div><b>Ready for a CSV</b><small>Local browser analysis</small></div></div>
+          <div class="top-actions">
+            <button class="button button-quiet" id="guideButton">How it works</button>
+            <label class="button button-primary" for="csvInput">Upload CSV</label>
+            <input id="csvInput" type="file" accept=".csv,text/csv" hidden />
+          </div>
+        </header>
+
+        <section class="page is-visible" id="overviewPage">
+          <div class="page-heading">
+            <div><p class="eyebrow">COMPANY PULSE</p><h1>Your company at a glance</h1><p id="periodLabel">Upload a Sim Companies account-history CSV to begin.</p></div>
+            <button class="button button-quiet" id="exportButton" disabled>Export report</button>
+          </div>
+
+          <section class="upload-welcome" id="uploadWelcome">
+            <div class="welcome-icon">↥</div>
+            <div><h2>Drop in your account-history CSV</h2><p>Get a clean view of cash, product profit, executive costs, operating margin, and trends. Nothing leaves this device.</p></div>
+            <label class="button button-primary" for="csvInput">Choose CSV</label>
+          </section>
+
+          <section class="kpi-grid" aria-label="Key performance indicators">
+            <article class="metric-card"><span>Cash change</span><strong id="cashValue">—</strong><small id="cashNote">Money in minus money out</small></article>
+            <article class="metric-card"><span>Money from sales</span><strong id="salesValue">—</strong><small id="salesNote">Market and contract sales</small></article>
+            <article class="metric-card"><span>Profit from sales</span><strong id="profitValue">—</strong><small id="profitNote">Sim-reported profit rate</small></article>
+            <article class="metric-card"><span>Operating margin</span><strong id="operatingValue">—</strong><small id="operatingNote">After executive and company costs</small></article>
+          </section>
+
+          <section class="dashboard-grid">
+            <article class="panel chart-panel">
+              <div class="panel-header"><div><h2>Cash movement</h2><p>Running change in cash across the selected period</p></div><div class="range-control" aria-label="Cash chart range"><button data-range="7">7D</button><button data-range="14">14D</button><button class="is-selected" data-range="30">30D</button><button data-range="0">All</button></div></div>
+              <div class="chart-wrap"><svg id="cashChart" role="img" aria-label="Cash movement chart" viewBox="0 0 760 265" preserveAspectRatio="none"></svg><div class="empty-chart" id="cashChartEmpty">Your cash trend will appear here.</div></div>
+            </article>
+            <article class="panel insights-panel"><div class="panel-header"><div><h2>What this means</h2><p>Two useful takeaways from the CSV</p></div></div><div class="insight-list" id="insights"><div class="insight muted"><i>i</i><p>Upload a CSV and I’ll turn the account activity into plain-English takeaways.</p></div></div></article>
+          </section>
+
+          <section class="panel table-panel"><div class="panel-header"><div><h2>Top products by Sim-reported profit</h2><p>Only sales that carry Sim’s own <code>profit</code> value are included in the margin.</p></div><button class="text-button" data-page-link="sales">View all products →</button></div><div class="table-scroll"><table><thead><tr><th>#</th><th>Product</th><th>Sales</th><th>Profit from Sim</th><th>Profit rate</th></tr></thead><tbody id="productsPreview"><tr class="empty-row"><td colspan="5">No product data loaded yet.</td></tr></tbody></table></div></section>
+        </section>
+
+        <section class="page" id="salesPage"><div class="page-heading"><div><p class="eyebrow">SALES INTELLIGENCE</p><h1>Sales &amp; profit</h1><p>Compare products, market sales, contract sales, fees, and Sim-reported margins.</p></div></div><section class="product-grid"><article class="panel chart-panel"><div class="panel-header"><div><h2>Product profit map</h2><p>Further right means more reported profit. Higher means a better margin.</p></div><div class="segmented"><button class="is-selected" data-sales-channel="all">All</button><button data-sales-channel="market">Market</button><button data-sales-channel="contract">Contracts</button></div></div><div class="chart-wrap"><svg id="productChart" role="img" aria-label="Product margin comparison chart" viewBox="0 0 760 285" preserveAspectRatio="none"></svg><div class="empty-chart" id="productChartEmpty">Your product comparison will appear here.</div></div></article><article class="panel product-detail"><div class="panel-header"><div><h2>Product detail</h2><p id="productDetailNote">Select a product point or row.</p></div></div><div id="productDetail" class="detail-list"><p class="muted-copy">Load a CSV to compare sales by product.</p></div></article></section><section class="panel table-panel"><div class="panel-header"><div><h2>Product results</h2><p id="salesCoverage">Load a CSV to see your product results.</p></div></div><div class="table-scroll"><table><thead><tr><th>Product</th><th>Revenue</th><th>Market</th><th>Contracts</th><th>Units sold</th><th>Fees</th><th>Profit from Sim</th><th>Margin</th></tr></thead><tbody id="productTable"><tr class="empty-row"><td colspan="8">No product data loaded yet.</td></tr></tbody></table></div></section><section class="panel table-panel"><div class="panel-header"><div><h2>Observed material purchases</h2><p>What you paid in this export. These are not automatically assigned to a finished product’s cost.</p></div></div><div class="table-scroll"><table><thead><tr><th>Material</th><th>Amount bought</th><th>Spend</th><th>Average paid / unit</th><th>Latest paid / unit</th></tr></thead><tbody id="purchaseTable"><tr class="empty-row"><td colspan="5">No market purchases loaded yet.</td></tr></tbody></table></div></section></section>
+
+        <section class="page" id="expensesPage"><div class="page-heading"><div><p class="eyebrow">OPERATING RESULT</p><h1>Costs &amp; expenses</h1><p>See what remains after executive costs and identifiable company overhead.</p></div></div><section class="expense-layout"><article class="panel bridge-panel"><div class="panel-header"><div><h2>Operating-profit bridge</h2><p>Starts with Sim’s product profit, then applies executive and company costs.</p></div></div><div id="profitBridge" class="profit-bridge"><p class="muted-copy">Load a CSV to build the operating-profit bridge.</p></div></article><article class="panel category-panel"><div class="panel-header"><div><h2>Cash by category</h2><p>All cash activity from the export.</p></div></div><div id="categoryList" class="category-list"><p class="muted-copy">No categories loaded yet.</p></div></article></section></section>
+
+        <section class="page" id="trendsPage"><div class="page-heading"><div><p class="eyebrow">30-DAY VIEW</p><h1>Trends</h1><p>Daily sales, spending, and Sim-reported profit from your loaded export.</p></div></div><section class="panel chart-panel full-chart"><div class="panel-header"><div><h2>Sales, spending &amp; profit</h2><p>Hover over a point for the daily figures.</p></div><div class="legend"><span><i class="legend-sales"></i>Sales</span><span><i class="legend-spend"></i>Spending</span><span><i class="legend-profit"></i>Profit</span></div></div><div class="chart-wrap tall"><svg id="trendChart" role="img" aria-label="Daily sales spending and profit trend" viewBox="0 0 1000 350" preserveAspectRatio="none"></svg><div class="empty-chart" id="trendChartEmpty">Upload a CSV to view daily trends.</div></div></section><section class="panel table-panel"><div class="panel-header"><div><h2>Daily activity</h2><p>Latest day first.</p></div></div><div class="table-scroll"><table><thead><tr><th>Date</th><th>Sales</th><th>Spending</th><th>Profit from Sim</th><th>Cash change</th></tr></thead><tbody id="dailyTable"><tr class="empty-row"><td colspan="5">No daily activity loaded yet.</td></tr></tbody></table></div></section></section>
+
+        <section class="page" id="executivesPage"><div class="page-heading"><div><p class="eyebrow">PEOPLE &amp; OVERHEAD</p><h1>Executive costs</h1><p>See salary, training, poaching, and royalty activity without burying it in the general expense list.</p></div></div><section class="kpi-grid executive-kpis"><article class="metric-card"><span>Net executive cost</span><strong id="execTotal">—</strong><small>Costs minus royalties or reimbursements</small></article><article class="metric-card"><span>Average per day</span><strong id="execDaily">—</strong><small>Across the CSV’s date range</small></article><article class="metric-card"><span>Of reported product profit</span><strong id="execProfitShare">—</strong><small>Only when Sim reported profit exists</small></article><article class="metric-card"><span>Largest executive cost</span><strong id="execLargest">—</strong><small id="execLargestNote">Load a CSV to calculate</small></article></section><section class="product-grid"><article class="panel chart-panel"><div class="panel-header"><div><h2>Daily executive activity</h2><p>Grouped by the account-history category.</p></div></div><div class="chart-wrap"><svg id="executiveChart" role="img" aria-label="Daily executive costs chart" viewBox="0 0 760 285" preserveAspectRatio="none"></svg><div class="empty-chart" id="executiveChartEmpty">Executive activity will appear here.</div></div></article><article class="panel product-detail"><div class="panel-header"><div><h2>Cost mix</h2><p>Negative cash activity; royalties are shown separately.</p></div></div><div id="execBreakdown" class="detail-list"><p class="muted-copy">Load a CSV to see the executive-cost mix.</p></div></article></section></section>
+
+        <section class="page" id="transactionsPage"><div class="page-heading"><div><p class="eyebrow">SOURCE ACTIVITY</p><h1>Transactions</h1><p>Search the underlying rows whenever you want to check a result or spot a one-off event.</p></div><button class="button button-quiet" id="exportTransactions" disabled>Export filtered CSV</button></div><section class="panel filter-panel"><div class="filter-row"><label>Search<input id="transactionSearch" type="search" placeholder="Product, description, category…" /></label><label>Category<select id="transactionCategory"><option value="">All categories</option></select></label><label>Product<select id="transactionProduct"><option value="">All products</option></select></label><label>Period<select id="transactionPeriod"><option value="0">All dates</option><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30">Last 30 days</option></select></label><button class="button button-quiet" id="clearTransactions">Clear filters</button></div><p id="transactionCount" class="filter-note">Load a CSV to explore its rows.</p></section><section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>Date &amp; time</th><th>Category</th><th>Product</th><th>Description</th><th>Money</th><th>Profit from Sim</th><th>Units</th></tr></thead><tbody id="transactionsTable"><tr class="empty-row"><td colspan="7">No transaction data loaded yet.</td></tr></tbody></table></div></section></section>
+
+        <section class="page" id="inventoryPage"><div class="page-heading"><div><p class="eyebrow">WAREHOUSE PLANNING</p><h1>Inventory</h1><p>Save warehouse positions locally in this browser. These are not inferred from the CSV.</p></div><button class="button button-primary" id="addInventory">Add item</button></div><section class="inventory-summary"><article class="metric-card"><span>Items tracked</span><strong id="inventoryCount">0</strong><small>Saved only in this browser</small></article><article class="metric-card"><span>Cost value</span><strong id="inventoryCost">—</strong><small>Units × cost per unit</small></article><article class="metric-card"><span>Known market value</span><strong id="inventoryMarket">—</strong><small>Only items with a market price</small></article></section><section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>Item</th><th>Quality</th><th>Units</th><th>Cost/unit</th><th>Market price</th><th>Potential change</th><th></th></tr></thead><tbody id="inventoryTable"><tr class="empty-row"><td colspan="7">No inventory items saved. Add one whenever you are ready.</td></tr></tbody></table></div></section></section>
+
+        <section class="page" id="pricePage"><div class="page-heading"><div><p class="eyebrow">DECISION TOOL</p><h1>Price check</h1><p>Find the price you need to charge to keep your target profit margin.</p></div></div><section class="calculator-card"><div class="calculator-form"><label>Cost per unit<input id="costInput" inputmode="decimal" value="0" /></label><label>Market fee %<input id="feeInput" inputmode="decimal" value="3" /></label><label>Target margin %<input id="marginInput" inputmode="decimal" value="20" /></label><label>Your sell price<input id="priceInput" inputmode="decimal" value="0" /></label><button class="button button-primary" id="calculatePrice">Calculate</button></div><div class="calculator-result" id="calculatorResult">Enter your cost, fee, profit goal, and current selling price to check the math.</div></section></section>
+      </main>
+    </div>
+
+    <dialog id="inventoryDialog"><form method="dialog" class="dialog-card" id="inventoryForm"><div class="dialog-heading"><div><p class="eyebrow">LOCAL INVENTORY</p><h2>Add warehouse item</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div><label>Item name<input name="name" required placeholder="e.g. Power" /></label><div class="dialog-grid"><label>Quality<input name="quality" inputmode="numeric" value="0" /></label><label>Units<input name="units" inputmode="decimal" required value="0" /></label></div><div class="dialog-grid"><label>Cost per unit<input name="cost" inputmode="decimal" value="0" /></label><label>Market price (optional)<input name="market" inputmode="decimal" /></label></div><div class="dialog-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-primary" id="saveInventory" value="default">Save item</button></div></form></dialog>
+    <dialog id="infoDialog"><div class="dialog-card"><div class="dialog-heading"><div><p class="eyebrow">SIM COMPANIES ANALYZER</p><h2 id="dialogTitle">How it works</h2></div><button class="icon-button" id="closeInfo" aria-label="Close">×</button></div><p id="dialogText"></p></div></dialog>
+    <script src="app.js"></script>
+  </body>
+</html>
