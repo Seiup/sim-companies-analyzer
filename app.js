@@ -1,5 +1,5 @@
-/* Sim Companies Analyzer — browser-local CSV analysis. No network requests are made. */
-const state = { analysis: null, cashDays: 30, inventory: loadInventory(), salesChannel: "all", selectedProduct: null, filters: { search: "", category: "", product: "", period: 0 } };
+/* Sim Companies Analyzer — browser-local CSV analysis with a published daily price snapshot. */
+const state = { analysis: null, cashDays: 30, inventory: loadInventory(), marketPrices: null, marketPriceError: null, salesChannel: "all", selectedProduct: null, filters: { search: "", category: "", product: "", period: 0 } };
 const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
 const money = (v, compact = true) => { const n = Number(v || 0), a = Math.abs(n), sign = n < 0 ? "-" : ""; if (compact && a >= 1e6) return `${sign}$${(a / 1e6).toFixed(2)}M`; if (compact && a >= 1000) return `${sign}$${(a / 1000).toFixed(1)}K`; return `${sign}$${a.toLocaleString(undefined, { maximumFractionDigits: 0 })}`; };
 const percent = (v) => Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "—";
@@ -9,6 +9,8 @@ const fmtDate = (d) => new Intl.DateTimeFormat(undefined, { month: "short", day:
 const fmtDay = (d) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${d}T00:00:00`));
 const fmtDateTime = (d) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
 const sum = (xs, fn = (x) => x) => xs.reduce((s, x) => s + Number(fn(x) || 0), 0);
+const normalizedResourceName = (value) => String(value ?? "").trim().toLowerCase().replace(/[’']/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+const marketKey = (name, quality) => `${normalizedResourceName(name)}|${Number(quality) || 0}`;
 
 function parseCsvTable(text) {
   const rows = []; let row = [], cell = "", quoted = false;
@@ -82,13 +84,46 @@ function renderTransactions() { const a = state.analysis; if (!a) return; const 
 function loadInventory() { try { return JSON.parse(localStorage.getItem("sim-companies-analyzer-inventory") || "[]"); } catch { return []; } }
 function saveInventory() { localStorage.setItem("sim-companies-analyzer-inventory", JSON.stringify(state.inventory)); }
 const unitMoney = (v) => Number.isFinite(v) ? `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : "—";
+function manualMarketQuote(x) { return x.market !== null && x.market !== undefined && Number.isFinite(Number(x.market)) ? { price: Number(x.market), source: "manual" } : null; }
+function marketQuote(x) { return manualMarketQuote(x) || state.marketPrices?.index.get(marketKey(x.name, x.quality)) || null; }
+function marketSnapshotNote() {
+  if (state.marketPrices?.retrievedAt) {
+    const updated = new Date(state.marketPrices.retrievedAt);
+    const date = Number.isNaN(updated.valueOf()) ? "an unknown date" : fmtDate(updated);
+    return `Automatic quality-specific daily market averages · updated ${date}. These are not live sell-order quotes.`;
+  }
+  if (state.marketPriceError) return "Daily market averages are unavailable here. Open the published site after the price file is uploaded.";
+  return "Loading automatic daily market averages…";
+}
+async function loadMarketPrices() {
+  try {
+    const response = await fetch("./market-prices.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Price file returned ${response.status}.`);
+    const snapshot = await response.json();
+    if (!Array.isArray(snapshot.prices)) throw new Error("The price file did not contain any prices.");
+    const index = new Map();
+    snapshot.prices.forEach((row) => {
+      const price = Number(row.price);
+      if (row.name && Number.isFinite(price) && price >= 0 && Number.isFinite(Number(row.quality))) index.set(marketKey(row.name, row.quality), { price, source: "daily-vwap", observedAt: row.observedAt || null });
+    });
+    if (!index.size) throw new Error("The price file did not contain usable prices.");
+    state.marketPrices = { index, retrievedAt: snapshot.retrievedAt || null, source: snapshot.source || "Market price snapshot" };
+    state.marketPriceError = null;
+  } catch (error) {
+    state.marketPrices = null;
+    state.marketPriceError = error;
+  }
+  renderInventory();
+}
 function renderInventory() {
-  const xs = state.inventory, knownCost = (x) => x.recordedTotal != null ? x.recordedTotal : x.cost != null ? x.units * x.cost : null, costItems = xs.filter((x) => knownCost(x) !== null), marketItems = xs.filter((x) => x.market != null);
+  const xs = state.inventory, knownCost = (x) => x.recordedTotal != null ? x.recordedTotal : x.cost != null ? x.units * x.cost : null, costItems = xs.filter((x) => knownCost(x) !== null), quotedItems = xs.map((x) => ({ x, quote: marketQuote(x) })).filter(({ quote }) => quote !== null), automaticItems = quotedItems.filter(({ quote }) => quote.source === "daily-vwap"), manualItems = quotedItems.filter(({ quote }) => quote.source === "manual");
   $("#inventoryCount").textContent = number(xs.length);
   $("#inventoryCost").textContent = costItems.length ? money(sum(costItems, knownCost)) : "—";
   $("#inventoryCostNote").textContent = costItems.length < xs.length ? `Costs available for ${number(costItems.length)} of ${number(xs.length)} items` : "Based on available item costs";
-  $("#inventoryMarket").textContent = marketItems.length ? money(sum(marketItems, (x) => x.units * x.market)) : "—";
-  $("#inventoryTable").innerHTML = xs.map((x, i) => { const change = x.market == null || x.cost == null ? null : x.units * (x.market - x.cost); return `<tr><td>${esc(x.name)}</td><td>Q${number(x.quality)}</td><td>${number(x.units)}</td><td>${unitMoney(x.cost)}</td><td>${unitMoney(x.market)}</td><td class="${change !== null && change >= 0 ? "margin-good" : "margin-bad"}">${change === null ? "—" : money(change)}</td><td>${x.costBreakdown ? `<button class="inventory-table-button" data-inventory-cost="${i}">Cost details</button> ` : ""}<button class="inventory-table-button" data-remove-inventory="${i}">Remove</button></td></tr>`; }).join("") || `<tr class="empty-row"><td colspan="7">No inventory items saved. Add one whenever you are ready.</td></tr>`;
+  $("#inventoryMarket").textContent = quotedItems.length ? money(sum(quotedItems, ({ x, quote }) => x.units * quote.price)) : "—";
+  $("#inventoryMarketNote").textContent = quotedItems.length ? `Prices for ${number(quotedItems.length)} of ${number(xs.length)} items${automaticItems.length ? ` · ${number(automaticItems.length)} automatic daily average${automaticItems.length === 1 ? "" : "s"}` : ""}${manualItems.length ? ` · ${number(manualItems.length)} manual` : ""}` : marketSnapshotNote();
+  $("#inventoryMarketStatus").textContent = marketSnapshotNote();
+  $("#inventoryTable").innerHTML = xs.map((x, i) => { const quote = marketQuote(x), change = quote === null || x.cost == null ? null : x.units * (quote.price - x.cost), quoteLabel = quote?.source === "manual" ? "Manual price" : "Daily market average"; return `<tr><td>${esc(x.name)}</td><td>Q${number(x.quality)}</td><td>${number(x.units)}</td><td>${unitMoney(x.cost)}</td><td title="${quote ? quoteLabel : "No matched market average"}">${unitMoney(quote?.price)}</td><td class="${change !== null && change >= 0 ? "margin-good" : "margin-bad"}">${change === null ? "—" : money(change)}</td><td>${x.costBreakdown ? `<button class="inventory-table-button" data-inventory-cost="${i}">Cost details</button> ` : ""}<button class="inventory-table-button" data-remove-inventory="${i}">Remove</button></td></tr>`; }).join("") || `<tr class="empty-row"><td colspan="7">No inventory items saved. Add one whenever you are ready.</td></tr>`;
   $$('[data-remove-inventory]').forEach((b) => b.addEventListener("click", () => { state.inventory.splice(Number(b.dataset.removeInventory), 1); saveInventory(); renderInventory(); }));
   $$('[data-inventory-cost]').forEach((b) => b.addEventListener("click", () => { const x = xs[Number(b.dataset.inventoryCost)]; showInfo(`${x.name} cost details`, `${warehouseCosts.map((key) => `${key}: ${x.costBreakdown[key] == null ? "not provided" : unitMoney(x.costBreakdown[key])}`).join("\n")}\n\nThe sum is treated as the cost of the listed stock, then divided by its quantity. The export does not name the numbered materials.`); }));
 }
@@ -109,7 +144,7 @@ $("#csvInput").addEventListener("change", async (e) => { const file = e.target.f
 $$('.nav-item').forEach((b) => b.addEventListener("click", () => { const page = b.dataset.page; $$('.nav-item').forEach((n) => n.classList.toggle("is-active", n === b)); $$(".page").forEach((n) => n.classList.toggle("is-visible", n.id === `${page}Page`)); window.scrollTo({ top: 0, behavior: "smooth" }); }));
 $$('[data-page-link]').forEach((b) => b.addEventListener("click", () => $(`.nav-item[data-page="${b.dataset.pageLink}"]`).click())); $$('[data-range]').forEach((b) => b.addEventListener("click", () => { state.cashDays = Number(b.dataset.range); $$('[data-range]').forEach((n) => n.classList.toggle("is-selected", n === b)); drawCashChart(); })); $$('[data-sales-channel]').forEach((b) => b.addEventListener("click", () => { state.salesChannel = b.dataset.salesChannel; $$('[data-sales-channel]').forEach((n) => n.classList.toggle("is-selected", n === b)); renderSales(); }));
 $("#transactionSearch").addEventListener("input", (e) => { state.filters.search = e.target.value; renderTransactions(); }); $("#transactionCategory").addEventListener("change", (e) => { state.filters.category = e.target.value; renderTransactions(); }); $("#transactionProduct").addEventListener("change", (e) => { state.filters.product = e.target.value; renderTransactions(); }); $("#transactionPeriod").addEventListener("change", (e) => { state.filters.period = Number(e.target.value); renderTransactions(); }); $("#clearTransactions").addEventListener("click", () => { state.filters = { search: "", category: "", product: "", period: 0 }; renderTransactions(); }); $("#exportTransactions").addEventListener("click", exportTransactions);
-$("#guideButton").addEventListener("click", () => showInfo("How it works", "Choose a Sim Companies account-history CSV. The browser reads it locally and builds cash, product, material-purchase, executive-cost, and operating-margin views. Your CSV is not uploaded to this site.")); $("#privacyButton").addEventListener("click", () => showInfo("Your CSV stays local", "This build has no analytics, database, or upload service. Your browser reads the file you pick and keeps the analysis in the open tab. Closing or refreshing the tab clears the loaded CSV data.")); $("#supportLink").addEventListener("click", (e) => { e.preventDefault(); showInfo("Support link", "A public version can place your PayPal, Ko-fi, or other support link here. Send me the exact URL when you are ready and I will wire it in."); }); $("#exportButton").addEventListener("click", exportReport);
+$("#guideButton").addEventListener("click", () => showInfo("How it works", "Choose a Sim Companies account-history CSV. The browser reads it locally and builds cash, product, material-purchase, executive-cost, and operating-margin views. Your CSV is not uploaded to this site.")); $("#privacyButton").addEventListener("click", () => showInfo("Your CSV stays local", "This build has no analytics, database, or upload service. Your browser reads the file you pick and keeps the analysis in the open tab. Closing or refreshing the tab clears the loaded CSV data.")); $("#exportButton").addEventListener("click", exportReport);
 $("#addInventory").addEventListener("click", () => $("#inventoryDialog").showModal()); $("#inventoryForm").addEventListener("submit", (e) => { e.preventDefault(); const f = new FormData(e.currentTarget), market = String(f.get("market") || "").trim(); state.inventory.push({ name: String(f.get("name") || "Item").trim(), quality: Number(f.get("quality")) || 0, units: Number(f.get("units")) || 0, cost: Number(f.get("cost")) || 0, market: market === "" ? null : Number(market) || 0 }); saveInventory(); renderInventory(); e.currentTarget.reset(); $("#inventoryDialog").close(); }); $("#closeInfo").addEventListener("click", () => $("#infoDialog").close());
 let pendingWarehouse = null;
 $("#importWarehouse").addEventListener("click", () => $("#warehouseCsvInput").click());
@@ -117,4 +152,4 @@ $("#warehouseCsvInput").addEventListener("change", async (e) => { const file = e
 $("#cancelWarehouse").addEventListener("click", () => { pendingWarehouse = null; $("#warehouseDialog").close(); });
 $("#warehouseDialog").addEventListener("close", () => { pendingWarehouse = null; });
 $("#confirmWarehouse").addEventListener("click", () => { if (!pendingWarehouse) return; try { localStorage.setItem("sim-companies-analyzer-inventory", JSON.stringify(pendingWarehouse)); state.inventory = pendingWarehouse; $("#warehouseDialog").close(); renderInventory(); } catch { $("#warehouseDialog").close(); showInfo("Could not save inventory", "Your browser could not save the imported inventory. Your existing saved inventory was not changed."); } });
-$("#calculatePrice").addEventListener("click", () => { const cost = Number($("#costInput").value) || 0, fee = (Number($("#feeInput").value) || 0) / 100, margin = (Number($("#marginInput").value) || 0) / 100, price = Number($("#priceInput").value) || 0; if (fee < 0 || margin < 0 || fee + margin >= 1) { $("#calculatorResult").textContent = "Your fee plus target margin must be less than 100%."; return; } const required = cost / (1 - fee - margin), profit = price * (1 - fee) - cost; $("#calculatorResult").innerHTML = `To keep <strong>${percent(margin)}</strong> from each sale, charge at least <strong>${money(required, false)}</strong> per unit. At <strong>${money(price, false)}</strong>, you keep <strong>${money(profit, false)}</strong> per unit (${percent(price ? profit / price : NaN)}).`; }); renderInventory();
+$("#calculatePrice").addEventListener("click", () => { const cost = Number($("#costInput").value) || 0, fee = (Number($("#feeInput").value) || 0) / 100, margin = (Number($("#marginInput").value) || 0) / 100, price = Number($("#priceInput").value) || 0; if (fee < 0 || margin < 0 || fee + margin >= 1) { $("#calculatorResult").textContent = "Your fee plus target margin must be less than 100%."; return; } const required = cost / (1 - fee - margin), profit = price * (1 - fee) - cost; $("#calculatorResult").innerHTML = `To keep <strong>${percent(margin)}</strong> from each sale, charge at least <strong>${money(required, false)}</strong> per unit. At <strong>${money(price, false)}</strong>, you keep <strong>${money(profit, false)}</strong> per unit (${percent(price ? profit / price : NaN)}).`; }); renderInventory(); loadMarketPrices();
