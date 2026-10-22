@@ -3,7 +3,7 @@
   "source": "SimcoTools market VWAP",
   "sourceUrl": "https://api.simcotools.com/v1/realms/0/market/vwaps",
   "priceType": "daily-vwap",
-  "retrievedAt": "2026-10-22T04:39:17.756Z",
+  "retrievedAt": "2026-10-22T05:49:23.663Z",
   "note": "Quality-specific daily market averages. This is not a live order-book quote.",
   "prices": [
     {
