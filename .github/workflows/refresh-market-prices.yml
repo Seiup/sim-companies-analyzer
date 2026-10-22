@@ -1,0 +1,33 @@
+name: Refresh daily market prices
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 5 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the site
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Refresh the daily market snapshot
+        run: node scripts/fetch-market-prices.mjs market-prices.json
+      - name: Commit a changed snapshot
+        run: |
+          if git diff --quiet -- market-prices.json; then
+            echo "No market-price change to commit."
+            exit 0
+          fi
+          git config user.name "sim-companies-analyzer-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add market-prices.json
+          git commit -m "Refresh market price snapshot"
+          git push
